@@ -7,7 +7,7 @@ import numpy as np
 try:
     with open('svr_model.pkl', 'rb') as file:
         model = pickle.load(file)
-    
+    st.write("✅ SVR Model loaded successfully.")
 except FileNotFoundError:
     st.error("❌ The SVR model file (svr_model.pkl) is missing. Please upload it.")
     st.stop()
@@ -16,7 +16,7 @@ except FileNotFoundError:
 try:
     with open('scaler.pkl', 'rb') as file:
         scaler = pickle.load(file)
-    
+    st.write("✅ Scaler loaded successfully.")
 except FileNotFoundError:
     st.error("❌ The scaler file (scaler.pkl) is missing. Please upload it.")
     st.stop()
@@ -48,41 +48,34 @@ def app():
 
     # One-hot encode education and experience level
     education_mapping = {
-        "Bachelor’s degree": "Education_Bachelor’s degree",
-        "Master’s degree": "Education_Master’s degree",
-        "Doctoral degree": "Education_Doctoral degree"
+        "Bachelor’s degree": 1,
+        "Master’s degree": 2,
+        "Doctoral degree": 3
     }
     experience_mapping = {
-        "Entry level": "ExperienceLevel_Entry level",
-        "Mid-Senior level": "ExperienceLevel_Mid-Senior level",
-        "Executive": "ExperienceLevel_Executive"
+        "Entry level": 1,
+        "Mid-Senior level": 2,
+        "Executive": 3
     }
 
-    # Create a placeholder DataFrame with all features used during training
-    input_data = {
-        'Age': age,
-        'Education_Bachelor’s degree': 0,
-        'Education_Master’s degree': 0,
-        'Education_Doctoral degree': 0,
-        'ExperienceLevel_Entry level': 0,
-        'ExperienceLevel_Mid-Senior level': 0,
-        'ExperienceLevel_Executive': 0,
-    }
+    # Map inputs to numeric values
+    education_numeric = education_mapping[education_level]
+    experience_numeric = experience_mapping[experience_level]
 
-    # Set the selected options to 1 in the input_data
-    input_data[education_mapping[education_level]] = 1
-    input_data[experience_mapping[experience_level]] = 1
-
-    # Convert the dictionary to a DataFrame
-    input_df = pd.DataFrame([input_data])
+    # Create input DataFrame
+    input_data = pd.DataFrame({
+        'Age': [age],
+        'Education': [education_numeric],
+        'ExperienceLevel': [experience_numeric],
+    })
 
     # Display raw input data
     st.write("### Input Data")
-    st.write(input_df)
+    st.write(input_data)
 
     # Scale the input data
     try:
-        scaled_data = scaler.transform(input_df)
+        scaled_data = scaler.transform(input_data)
     except Exception as e:
         st.error(f"Error scaling input data: {e}")
         st.stop()
