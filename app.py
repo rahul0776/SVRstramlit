@@ -26,7 +26,8 @@ expected_features = [
 
 # Streamlit App
 def app():
-    st.set_page_config(page_title="Job Level Predictor", layout="wide", theme="dark")
+    st.set_page_config(page_title="Job Level Predictor", layout="wide")
+
     
     st.sidebar.header("Input Features")
     st.sidebar.markdown("Enter the features below:")
