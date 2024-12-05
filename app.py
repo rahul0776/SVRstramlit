@@ -2,6 +2,8 @@ import streamlit as st
 import pickle
 import pandas as pd
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # Load the trained SVR model
 try:
@@ -91,28 +93,72 @@ def app():
     st.write("### Input Data (Scaled)")
     st.write(scaled_data)
 
-    # Default output
-    st.write("👈 Adjust the inputs in the sidebar and click **Predict Job Level** to see the results!")
+    # Visualization Function
+    def plot_feature_contributions(age, education, experience, predicted):
+        """
+        Plots feature contributions for prediction.
+        Args:
+        - age (float): Contribution of Age.
+        - education (float): Contribution of Education.
+        - experience (float): Contribution of Experience.
+        - predicted (float): Predicted job level.
+        """
+        feature_values = {
+            "Age Factor": age,
+            "Experience Factor": experience,
+            "Education Factor": education,
+            "Predicted Job Level": predicted
+        }
+
+        # Create the bar plot
+        features = list(feature_values.keys())
+        values = list(feature_values.values())
+
+        plt.figure(figsize=(10, 6))
+        sns.barplot(x=features, y=values, palette="viridis")
+        plt.title("Feature Contributions to Predicted Job Level")
+        plt.ylabel("Contribution Value")
+        plt.xlabel("Features")
+        plt.xticks(rotation=45)
+
+        # Annotate the bars with their values
+        for i, value in enumerate(values):
+            plt.text(i, value + 0.05, f"{value:.2f}", ha='center', va='bottom', fontsize=10)
+
+        plt.grid(axis="y", linestyle="--", alpha=0.7)
+        st.pyplot(plt)
 
     # Predict button
     if st.button("Predict Job Level"):
         try:
             # Predict using the loaded model
             prediction = model.predict(scaled_data)
-            
-            # Map prediction back to job level labels
-            job_level_mapping = {
-                1: "Entry-Level",
-                2: "Mid-Level",
-                3: "Senior-Level",
-                4: "Executive-Level",
-                5: "C-Level"
-            }
-            predicted_label = job_level_mapping.get(round(prediction[0]), "Unknown")
+
+            # Contributions for the visualization
+            age_contribution = (age - 20) / 10
+            education_contribution = sum([v for k, v in input_data.items() if "Education_" in k])
+            experience_contribution = sum([v for k, v in input_data.items() if "ExperienceLevel_" in k])
+            predicted_job_level = prediction[0]
+
+            # Normalize contributions
+            total_contribution = age_contribution + education_contribution + experience_contribution
+            if total_contribution != 0:
+                age_contribution /= total_contribution
+                education_contribution /= total_contribution
+                experience_contribution /= total_contribution
+
+            # Scale contributions relative to the prediction
+            age_contribution *= predicted_job_level
+            education_contribution *= predicted_job_level
+            experience_contribution *= predicted_job_level
 
             # Display the prediction
-            st.success(f"### Predicted Job Level: {predicted_label}")
-            st.write(f"Numerical Prediction: {round(prediction[0], 2)}")
+            st.success(f"### Predicted Job Level: {round(predicted_job_level, 2)}")
+
+            # Call the visualization function
+            plot_feature_contributions(
+                age_contribution, education_contribution, experience_contribution, predicted_job_level
+            )
 
         except Exception as e:
             st.error(f"Error making prediction: {e}")
