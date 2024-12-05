@@ -6,28 +6,28 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # Load the trained SVR model
-try:
-    with open('svr_model.pkl', 'rb') as file:
-        model = pickle.load(file)
-    st.write("✅ SVR Model loaded successfully.")
-except FileNotFoundError:
-    st.error("❌ The SVR model file (svr_model.pkl) is missing. Please upload it.")
-    st.stop()
+with open('svr_model.pkl', 'rb') as file:
+    model = pickle.load(file)
 
 # Load the scaler
-try:
-    with open('scaler.pkl', 'rb') as file:
-        scaler = pickle.load(file)
-    st.write("✅ Scaler loaded successfully.")
-except FileNotFoundError:
-    st.error("❌ The scaler file (scaler.pkl) is missing. Please upload it.")
-    st.stop()
+with open('scaler.pkl', 'rb') as file:
+    scaler = pickle.load(file)
+
+# Expected features based on the training dataset
+expected_features = [
+    'Age', 
+    'Education_Bachelor’s degree', 
+    'Education_Master’s degree', 
+    'Education_Doctoral degree', 
+    'ExperienceLevel_Entry level', 
+    'ExperienceLevel_Mid-Senior level', 
+    'ExperienceLevel_Executive'
+]
 
 # Streamlit App
 def app():
-    st.title("Job Level Predictor (SVR)")
-
-    # Sidebar Inputs
+    st.set_page_config(page_title="Job Level Predictor", layout="wide", theme="dark")
+    
     st.sidebar.header("Input Features")
     st.sidebar.markdown("Enter the features below:")
 
@@ -49,125 +49,92 @@ def app():
     )
 
     # One-hot encode education and experience level
-    education_mapping = {
-        "Bachelor’s degree": "Education_Bachelor’s degree",
-        "Master’s degree": "Education_Master’s degree",
-        "Doctoral degree": "Education_Doctoral degree"
-    }
-    experience_mapping = {
-        "Entry level": "ExperienceLevel_Entry level",
-        "Mid-Senior level": "ExperienceLevel_Mid-Senior level",
-        "Executive": "ExperienceLevel_Executive"
-    }
+    input_data = pd.DataFrame({
+        'Age': [age],
+        'Education_Bachelor’s degree': [1 if education_level == "Bachelor’s degree" else 0],
+        'Education_Master’s degree': [1 if education_level == "Master’s degree" else 0],
+        'Education_Doctoral degree': [1 if education_level == "Doctoral degree" else 0],
+        'ExperienceLevel_Entry level': [1 if experience_level == "Entry level" else 0],
+        'ExperienceLevel_Mid-Senior level': [1 if experience_level == "Mid-Senior level" else 0],
+        'ExperienceLevel_Executive': [1 if experience_level == "Executive" else 0],
+    })
 
-    # Create a placeholder DataFrame with all features used during training
-    input_data = {
-        'Age': age,
-        'Education_Bachelor’s degree': 0,
-        'Education_Master’s degree': 0,
-        'Education_Doctoral degree': 0,
-        'ExperienceLevel_Entry level': 0,
-        'ExperienceLevel_Mid-Senior level': 0,
-        'ExperienceLevel_Executive': 0,
-    }
+    # Ensure all expected features are present
+    for feature in expected_features:
+        if feature not in input_data.columns:
+            input_data[feature] = 0
 
-    # Set the selected options to 1 in the input_data
-    input_data[education_mapping[education_level]] = 1
-    input_data[experience_mapping[experience_level]] = 1
+    # Reorder columns to match training
+    input_data = input_data[expected_features]
 
-    # Convert the dictionary to a DataFrame
-    input_df = pd.DataFrame([input_data])
-
-    # Display raw input data
-    st.write("### Input Data")
-    st.write(input_df)
+    # Display input data
+    st.markdown("### Input Data")
+    st.dataframe(input_data)
 
     # Scale the input data
     try:
-        scaled_data = scaler.transform(input_df)
+        scaled_data = scaler.transform(input_data)
+        st.success("Input data scaled successfully.")
     except Exception as e:
         st.error(f"Error scaling input data: {e}")
-        st.stop()
-
-    # Display scaled input data
-    st.write("### Input Data (Scaled)")
-    st.write(scaled_data)
-
-    # Visualization Function
-    def plot_feature_contributions(age, education, experience, predicted):
-        """
-        Plots feature contributions for prediction.
-        Args:
-        - age (float): Contribution of Age.
-        - education (float): Contribution of Education.
-        - experience (float): Contribution of Experience.
-        - predicted (float): Predicted job level.
-        """
-        feature_values = {
-            "Age Factor": age,
-            "Experience Factor": experience,
-            "Education Factor": education,
-            "Predicted Job Level": predicted
-        }
-
-        # Create the bar plot
-        features = list(feature_values.keys())
-        values = list(feature_values.values())
-
-        plt.figure(figsize=(10, 6))
-        sns.barplot(x=features, y=values, palette="viridis")
-        plt.title("Feature Contributions to Predicted Job Level")
-        plt.ylabel("Contribution Value")
-        plt.xlabel("Features")
-        plt.xticks(rotation=45)
-
-        # Annotate the bars with their values
-        for i, value in enumerate(values):
-            plt.text(i, value + 0.05, f"{value:.2f}", ha='center', va='bottom', fontsize=10)
-
-        plt.grid(axis="y", linestyle="--", alpha=0.7)
-        st.pyplot(plt)
+        return
 
     # Predict button
     if st.button("Predict Job Level"):
         try:
             # Predict using the loaded model
             prediction = model.predict(scaled_data)
+            st.markdown(f"### Predicted Job Level: {round(prediction[0], 2)}")
 
-            # Contributions for the visualization
-            age_contribution = (age - 20) / 10
-            education_contribution = sum([v for k, v in input_data.items() if "Education_" in k])
-            experience_contribution = sum([v for k, v in input_data.items() if "ExperienceLevel_" in k])
-            predicted_job_level = prediction[0]
-
-            # Normalize contributions
-            total_contribution = age_contribution + education_contribution + experience_contribution
-            if total_contribution != 0:
-                age_contribution /= total_contribution
-                education_contribution /= total_contribution
-                experience_contribution /= total_contribution
-
-            # Scale contributions relative to the prediction
-            age_contribution *= predicted_job_level
-            education_contribution *= predicted_job_level
-            experience_contribution *= predicted_job_level
-
-            # Display the prediction
-            st.success(f"### Predicted Job Level: {round(predicted_job_level, 2)}")
-
-            # Call the visualization function
-            plot_feature_contributions(
-                age_contribution, education_contribution, experience_contribution, predicted_job_level
-            )
-
+            # Visualization of contributions
+            visualize_contributions(input_data, prediction[0])
         except Exception as e:
             st.error(f"Error making prediction: {e}")
 
-    # Footer
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### About")
-    st.sidebar.markdown("This app predicts job levels using a trained Support Vector Regression (SVR) model.")
-    st.sidebar.markdown("Ensure all required files (`svr_model.pkl` and `scaler.pkl`) are uploaded.")
+
+# Visualization function
+def visualize_contributions(input_data, prediction):
+    # Mock calculation of contributions
+    age_contribution = input_data['Age'].iloc[0] / 75
+    education_contribution = (
+        input_data['Education_Bachelor’s degree'].iloc[0] * 0.3 +
+        input_data['Education_Master’s degree'].iloc[0] * 0.6 +
+        input_data['Education_Doctoral degree'].iloc[0] * 1.0
+    )
+    experience_contribution = (
+        input_data['ExperienceLevel_Entry level'].iloc[0] * 0.2 +
+        input_data['ExperienceLevel_Mid-Senior level'].iloc[0] * 0.5 +
+        input_data['ExperienceLevel_Executive'].iloc[0] * 0.8
+    )
+
+    # Normalize contributions
+    total_contribution = age_contribution + education_contribution + experience_contribution
+    age_contribution /= total_contribution
+    education_contribution /= total_contribution
+    experience_contribution /= total_contribution
+
+    # Data for visualization
+    contributions = {
+        "Age Contribution": age_contribution,
+        "Education Contribution": education_contribution,
+        "Experience Contribution": experience_contribution,
+        "Predicted Job Level": prediction
+    }
+
+    # Bar plot
+    st.markdown("### Feature Contributions to Predicted Job Level")
+    fig, ax = plt.subplots(figsize=(8, 5))
+    sns.barplot(x=list(contributions.keys()), y=list(contributions.values()), palette="viridis", ax=ax)
+    ax.set_title("Feature Contributions")
+    ax.set_ylabel("Contribution Value")
+    ax.set_xlabel("Features")
+
+    # Annotate the bars with their values
+    for i, value in enumerate(contributions.values()):
+        ax.text(i, value + 0.01, f"{value:.2f}", ha='center', fontsize=10)
+
+    st.pyplot(fig)
+
 
 if __name__ == "__main__":
     app()
