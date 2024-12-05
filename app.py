@@ -47,6 +47,9 @@ def plot_feature_contributions(features, contributions):
 def app():
     st.set_page_config(page_title="Job Level Predictor", layout="wide")
 
+    # Add the heading question
+    st.title("Can we accurately predict an individual's job level within an organization based on demographic and professional characteristics such as age, experience level, and education?")
+    
     st.sidebar.header("Input Features")
     st.sidebar.markdown("Enter the features below:")
 
