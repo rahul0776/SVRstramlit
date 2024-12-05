@@ -3,15 +3,14 @@ import pickle
 import pandas as pd
 import numpy as np
 
-# Load the trained SVR model
+# Load the trained SVR model and scaler
 with open('svr_model.pkl', 'rb') as file:
     model = pickle.load(file)
 
-# Load the scaler
 with open('scaler.pkl', 'rb') as file:
     scaler = pickle.load(file)
 
-# Define the full list of trained columns
+# Define the column order used during training
 TRAINED_COLUMNS = [
     'Age',
     'ExperienceLevel_Director',
@@ -26,31 +25,14 @@ TRAINED_COLUMNS = [
     'Education_Professional degree',
     'Education_Some college/university study without earning a bachelor’s degree'
 ]
-
-# Streamlit App
 def app():
-    st.set_page_config(page_title="Job Level Predictor", layout="wide", theme="dark")
-    st.title("Job Level Predictor (SVR)")
+    st.set_page_config(page_title="Job Level Predictor", layout="wide")
 
-    # Model and Scaler Load Status
-    st.sidebar.success("✔️ SVR Model loaded successfully.")
-    st.sidebar.success("✔️ Scaler loaded successfully.")
-
-    # Sidebar Inputs
     st.sidebar.header("Input Features")
-    st.sidebar.text("Enter the features below:")
+    st.sidebar.markdown("Enter the features below:")
 
     # User Inputs
     age = st.sidebar.slider("Age", 18, 75, 30)
-    experience_level = st.sidebar.selectbox(
-        "Experience Level", [
-            "Director",
-            "Entry level",
-            "Executive",
-            "Internship",
-            "Mid-Senior level"
-        ]
-    )
     education_level = st.sidebar.selectbox(
         "Education Level", [
             "Doctoral degree",
@@ -61,17 +43,24 @@ def app():
             "Some college/university study without earning a bachelor’s degree"
         ]
     )
+    experience_level = st.sidebar.selectbox(
+        "Experience Level", [
+            "Director",
+            "Entry level",
+            "Executive",
+            "Internship",
+            "Mid-Senior level"
+        ]
+    )
 
-    # Create input DataFrame
+    # One-hot encode the categorical inputs
     input_data = pd.DataFrame(columns=TRAINED_COLUMNS)
+    input_data.loc[0] = 0  # Initialize all columns to 0
 
-    # Fill with zeros initially
-    input_data.loc[0] = [0] * len(TRAINED_COLUMNS)
-
-    # Map user inputs to DataFrame
+    # Set the values for the user input
     input_data['Age'] = age
-    input_data[f'ExperienceLevel_{experience_level}'] = 1
     input_data[f'Education_{education_level}'] = 1
+    input_data[f'ExperienceLevel_{experience_level}'] = 1
 
     # Display input data
     st.write("### Input Data")
@@ -79,15 +68,15 @@ def app():
 
     # Scale the input data
     try:
-        scaled_data = scaler.transform(input_data)
-        st.write("### Scaled Input Data")
+        # Pass the raw numpy array to avoid feature name issues
+        scaled_data = scaler.transform(input_data.values)
+        st.write("### Scaled Data")
         st.write(scaled_data)
 
         # Predict button
         if st.button("Predict Job Level"):
             prediction = model.predict(scaled_data)
-            st.success(f"### Predicted Job Level: {round(prediction[0], 2)}")
-
+            st.write(f"### Predicted Job Level: {round(prediction[0], 2)}")
     except Exception as e:
         st.error(f"Error scaling input data: {e}")
 
