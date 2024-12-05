@@ -3,27 +3,27 @@ import pickle
 import pandas as pd
 import numpy as np
 
-# Load the trained SVR model and scaler
-with open('svr_model.pkl', 'rb') as file:
-    model = pickle.load(file)
+# Load the trained SVR model
+try:
+    with open('svr_model.pkl', 'rb') as file:
+        model = pickle.load(file)
+except FileNotFoundError:
+    st.error("❌ The SVR model file (svr_model.pkl) is missing. Please upload it.")
+    st.stop()
 
-with open('scaler.pkl', 'rb') as file:
-    scaler = pickle.load(file)
+# Load the scaler
+try:
+    with open('scaler.pkl', 'rb') as file:
+        scaler = pickle.load(file)
+except FileNotFoundError:
+    st.error("❌ The scaler file (scaler.pkl) is missing. Please upload it.")
+    st.stop()
 
-# Define the column order used during training
-TRAINED_COLUMNS = [
-    'Age',
-    'Education_Bachelor’s degree',
-    'Education_Master’s degree',
-    'Education_Doctoral degree',
-    'ExperienceLevel_Entry level',
-    'ExperienceLevel_Mid-Senior level',
-    'ExperienceLevel_Executive'
-]
-
+# Streamlit App
 def app():
-    st.set_page_config(page_title="Job Level Predictor", layout="wide")
+    st.title("Job Level Predictor (SVR)")
 
+    # Sidebar Inputs
     st.sidebar.header("Input Features")
     st.sidebar.markdown("Enter the features below:")
 
@@ -44,32 +44,75 @@ def app():
         ]
     )
 
-    # One-hot encode the categorical inputs
-    input_data = pd.DataFrame(columns=TRAINED_COLUMNS)
-    input_data.loc[0] = 0  # Initialize all columns to 0
+    # One-hot encode education and experience level
+    education_mapping = {
+        "Bachelor’s degree": 1,
+        "Master’s degree": 2,
+        "Doctoral degree": 3
+    }
+    experience_mapping = {
+        "Entry level": 1,
+        "Mid-Senior level": 2,
+        "Executive": 3
+    }
 
-    # Set the values for the user input
-    input_data['Age'] = age
-    input_data[f'Education_{education_level}'] = 1
-    input_data[f'ExperienceLevel_{experience_level}'] = 1
+    # Map inputs to numeric values
+    education_numeric = education_mapping[education_level]
+    experience_numeric = experience_mapping[experience_level]
 
-    # Display input data
+    # Create input DataFrame
+    input_data = pd.DataFrame({
+        'Age': [age],
+        'Education': [education_numeric],
+        'ExperienceLevel': [experience_numeric],
+    })
+
+    # Display raw input data
     st.write("### Input Data")
     st.write(input_data)
 
     # Scale the input data
     try:
-        # Pass the raw numpy array to avoid feature name issues
-        scaled_data = scaler.transform(input_data.values)
-        st.write("### Scaled Data")
-        st.write(scaled_data)
-
-        # Predict button
-        if st.button("Predict Job Level"):
-            prediction = model.predict(scaled_data)
-            st.write(f"### Predicted Job Level: {round(prediction[0], 2)}")
+        scaled_data = scaler.transform(input_data)
     except Exception as e:
         st.error(f"Error scaling input data: {e}")
+        st.stop()
+
+    # Display scaled input data
+    st.write("### Input Data (Scaled)")
+    st.write(scaled_data)
+
+    # Default output
+    st.write("👈 Adjust the inputs in the sidebar and click **Predict Job Level** to see the results!")
+
+    # Predict button
+    if st.button("Predict Job Level"):
+        try:
+            # Predict using the loaded model
+            prediction = model.predict(scaled_data)
+            
+            # Map prediction back to job level labels
+            job_level_mapping = {
+                1: "Entry-Level",
+                2: "Mid-Level",
+                3: "Senior-Level",
+                4: "Executive-Level",
+                5: "C-Level"
+            }
+            predicted_label = job_level_mapping.get(round(prediction[0]), "Unknown")
+
+            # Display the prediction
+            st.success(f"### Predicted Job Level: {predicted_label}")
+            st.write(f"Numerical Prediction: {round(prediction[0], 2)}")
+
+        except Exception as e:
+            st.error(f"Error making prediction: {e}")
+
+    # Footer
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### About")
+    st.sidebar.markdown("This app predicts job levels using a trained Support Vector Regression (SVR) model.")
+    st.sidebar.markdown("Ensure all required files (`svr_model.pkl` and `scaler.pkl`) are uploaded.")
 
 if __name__ == "__main__":
     app()
