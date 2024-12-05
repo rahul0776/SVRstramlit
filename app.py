@@ -59,7 +59,8 @@ def app():
 
     # Scale the input data
     try:
-        scaled_data = scaler.transform(input_data)
+        # Pass the raw numpy array to avoid feature name issues
+        scaled_data = scaler.transform(input_data.values)
         st.write("### Scaled Data")
         st.write(scaled_data)
 
