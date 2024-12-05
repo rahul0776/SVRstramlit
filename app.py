@@ -48,34 +48,41 @@ def app():
 
     # One-hot encode education and experience level
     education_mapping = {
-        "Bachelor’s degree": 1,
-        "Master’s degree": 2,
-        "Doctoral degree": 3
+        "Bachelor’s degree": "Education_Bachelor’s degree",
+        "Master’s degree": "Education_Master’s degree",
+        "Doctoral degree": "Education_Doctoral degree"
     }
     experience_mapping = {
-        "Entry level": 1,
-        "Mid-Senior level": 2,
-        "Executive": 3
+        "Entry level": "ExperienceLevel_Entry level",
+        "Mid-Senior level": "ExperienceLevel_Mid-Senior level",
+        "Executive": "ExperienceLevel_Executive"
     }
 
-    # Map inputs to numeric values
-    education_numeric = education_mapping[education_level]
-    experience_numeric = experience_mapping[experience_level]
+    # Create a placeholder DataFrame with all features used during training
+    input_data = {
+        'Age': age,
+        'Education_Bachelor’s degree': 0,
+        'Education_Master’s degree': 0,
+        'Education_Doctoral degree': 0,
+        'ExperienceLevel_Entry level': 0,
+        'ExperienceLevel_Mid-Senior level': 0,
+        'ExperienceLevel_Executive': 0,
+    }
 
-    # Create input DataFrame
-    input_data = pd.DataFrame({
-        'Age': [age],
-        'Education': [education_numeric],
-        'ExperienceLevel': [experience_numeric],
-    })
+    # Set the selected options to 1 in the input_data
+    input_data[education_mapping[education_level]] = 1
+    input_data[experience_mapping[experience_level]] = 1
+
+    # Convert the dictionary to a DataFrame
+    input_df = pd.DataFrame([input_data])
 
     # Display raw input data
     st.write("### Input Data")
-    st.write(input_data)
+    st.write(input_df)
 
     # Scale the input data
     try:
-        scaled_data = scaler.transform(input_data)
+        scaled_data = scaler.transform(input_df)
     except Exception as e:
         st.error(f"Error scaling input data: {e}")
         st.stop()
