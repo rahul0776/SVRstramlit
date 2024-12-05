@@ -4,20 +4,15 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from io import BytesIO
 
-# Set page configuration
-st.set_page_config(page_title="Job Level Predictor", layout="wide")
-
-# Load the trained SVR model
+# Load the trained SVR model and scaler
 with open('svr_model.pkl', 'rb') as file:
     model = pickle.load(file)
 
-# Load the scaler
 with open('scaler.pkl', 'rb') as file:
     scaler = pickle.load(file)
 
-# Define trained columns (features used during training)
+# Define the column order used during training
 TRAINED_COLUMNS = [
     'Age',
     'ExperienceLevel_Director',
@@ -33,48 +28,29 @@ TRAINED_COLUMNS = [
     'Education_Some college/university study without earning a bachelor’s degree'
 ]
 
-# Function to plot feature contributions
-def plot_feature_contributions(scaled_data, feature_names):
+def plot_feature_contributions(features, contributions):
     """
-    Visualize the feature contributions using a bar plot.
-    :param scaled_data: Scaled input data (array).
-    :param feature_names: List of feature names.
+    Creates a bar plot to visualize feature contributions.
+
+    Args:
+    - features: List of feature names.
+    - contributions: List of feature contribution values.
     """
-    contribution_df = pd.DataFrame(scaled_data, columns=feature_names)
-    contribution_df = contribution_df.T  # Transpose for easier plotting
-    contribution_df.columns = ["Scaled Value"]
+    plt.figure(figsize=(10, 6))
+    sns.barplot(x=features, y=contributions, palette="viridis")
+    plt.title("Feature Contributions to Predicted Job Level")
+    plt.ylabel("Contribution Value")
+    plt.xlabel("Features")
+    plt.xticks(rotation=45, ha="right")
+    st.pyplot(plt)
 
-    # Plot the bar chart
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(
-        x=contribution_df.index,
-        y=contribution_df["Scaled Value"],
-        palette="viridis",
-        ax=ax
-    )
-    plt.title("Feature Contributions to Predicted Job Level", fontsize=16)
-    plt.ylabel("Contribution Value", fontsize=12)
-    plt.xlabel("Features", fontsize=12)
-    plt.xticks(rotation=45, fontsize=10)
-    plt.tight_layout()
-
-    # Return the plot as a buffer
-    buf = BytesIO()
-    plt.savefig(buf, format="png")
-    plt.close(fig)
-    buf.seek(0)
-    return buf
-
-# Streamlit App
 def app():
-    st.title("Job Level Predictor (SVR)")
+    st.set_page_config(page_title="Job Level Predictor", layout="wide")
 
-    # Model and Scaler Load Status
-    st.sidebar.success("SVR Model loaded successfully.")
-    st.sidebar.success("Scaler loaded successfully.")
+    st.sidebar.header("Input Features")
+    st.sidebar.markdown("Enter the features below:")
 
-    # Sidebar Inputs
-    st.sidebar.header("Enter the features below:")
+    # User Inputs
     age = st.sidebar.slider("Age", 18, 75, 30)
     education_level = st.sidebar.selectbox(
         "Education Level", [
@@ -96,59 +72,36 @@ def app():
         ]
     )
 
-    # One-hot encode education and experience level
-    education_mapping = {
-        "Doctoral degree": "Education_Doctoral degree",
-        "I prefer not to answer": "Education_I prefer not to answer",
-        "Master’s degree": "Education_Master’s degree",
-        "No formal education past high school": "Education_No formal education past high school",
-        "Professional degree": "Education_Professional degree",
-        "Some college/university study without earning a bachelor’s degree": "Education_Some college/university study without earning a bachelor’s degree"
-    }
-    experience_mapping = {
-        "Director": "ExperienceLevel_Director",
-        "Entry level": "ExperienceLevel_Entry level",
-        "Executive": "ExperienceLevel_Executive",
-        "Internship": "ExperienceLevel_Internship",
-        "Mid-Senior level": "ExperienceLevel_Mid-Senior level"
-    }
+    # One-hot encode the categorical inputs
+    input_data = pd.DataFrame(columns=TRAINED_COLUMNS)
+    input_data.loc[0] = 0  # Initialize all columns to 0
 
-    # Create input DataFrame
-    input_data = pd.DataFrame(0, index=[0], columns=TRAINED_COLUMNS)
+    # Set the values for the user input
     input_data['Age'] = age
-    input_data[education_mapping[education_level]] = 1
-    input_data[experience_mapping[experience_level]] = 1
+    input_data[f'Education_{education_level}'] = 1
+    input_data[f'ExperienceLevel_{experience_level}'] = 1
 
-    # Display Input Data
-    st.subheader("Input Data")
+    # Display input data
+    st.write("### Input Data")
     st.write(input_data)
 
     # Scale the input data
     try:
-        scaled_data = scaler.transform(input_data)
-        st.subheader("Scaled Data")
-        st.write(pd.DataFrame(scaled_data, columns=TRAINED_COLUMNS))
+        # Pass the raw numpy array to avoid feature name issues
+        scaled_data = scaler.transform(input_data.values)
+        st.write("### Scaled Data")
+        st.write(scaled_data)
+
+        # Predict button
+        if st.button("Predict Job Level"):
+            prediction = model.predict(scaled_data)
+            st.write(f"### Predicted Job Level: {round(prediction[0], 2)}")
+
+            # Calculate and display feature contributions
+            feature_contributions = scaled_data[0] * model.coef_ if hasattr(model, 'coef_') else scaled_data[0]
+            plot_feature_contributions(TRAINED_COLUMNS, feature_contributions)
     except Exception as e:
         st.error(f"Error scaling input data: {e}")
-        return
-
-    # Predict button
-    if st.button("Predict Job Level"):
-        try:
-            # Predict using the loaded model
-            prediction = model.predict(scaled_data)
-            st.subheader("Predicted Job Level:")
-            st.write(f"### {round(prediction[0], 2)}")
-
-            # Plot Feature Contributions
-            st.subheader("Feature Contributions Visualization")
-            feature_contribution_plot = plot_feature_contributions(
-                scaled_data, TRAINED_COLUMNS
-            )
-            st.image(feature_contribution_plot, use_column_width=True)
-
-        except Exception as e:
-            st.error(f"Error making prediction: {e}")
 
 if __name__ == "__main__":
     app()
